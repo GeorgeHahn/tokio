@@ -345,6 +345,33 @@ impl Default for Timer<ParkThread, SystemNow> {
     }
 }
 
+/// Allow access to inner timer wheel
+pub trait HasWheel {
+    /// Get next timer expiration
+    fn next_expiration_in(&mut self) -> Option<Duration>;
+}
+
+impl<T, N> HasWheel for Timer<T, N>
+where
+    T: Park,
+    N: Now,
+{
+    fn next_expiration_in(&mut self) -> Option<Duration> {
+        match self.wheel.poll_at() {
+            None => None,
+            Some(when) => {
+                let now = self.now.now();
+                let next = self.expiration_instant(when);
+                if next > now {
+                    Some(next - now)
+                } else {
+                    Some(Duration::new(0, 0))
+                }
+            }
+        }
+    }
+}
+
 impl<T, N> Park for Timer<T, N>
 where
     T: Park,
